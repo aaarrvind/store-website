@@ -41,11 +41,11 @@ mail = Mail(app)
 limiter = Limiter(app=app, key_func=get_remote_address, default_limits=["200 per day"])
 
 # Load configuration from environment variables
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
+app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///store.db")
+if app.config["SQLALCHEMY_DATABASE_URI"].startswith("postgres://"):
+    app.config["SQLALCHEMY_DATABASE_URI"] = app.config["SQLALCHEMY_DATABASE_URI"].replace("postgres://", "postgresql://", 1)
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SECRET_KEY"] = os.getenv(
-    "SECRET_KEY", "your_secret_key_here"
-)  # Fallback for development
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "your_secret_key_here")
 app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
