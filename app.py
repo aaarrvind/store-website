@@ -9,7 +9,6 @@ from flask import (
     session,
     flash,
     current_app,
-    jsonify,
 )
 from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
@@ -17,18 +16,6 @@ from flask_limiter.util import get_remote_address
 import os
 from models import Customer, Order, db, Product, ProductImage
 from dotenv import load_dotenv
-from flask_login import login_required, current_user
-from flask_migrate import Migrate
-from datetime import datetime, timedelta, timezone
-from email_utils import (
-    init_mail,
-    generate_verification_token,
-    send_verification_email,
-    is_valid_email,
-)
-from flask_mail import Mail
-from flask_mail import Message
-import razorpay
 
 load_dotenv()
 from flask_login import login_required
@@ -72,11 +59,6 @@ app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
 app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
 app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_DEFAULT_SENDER")
 
-# Initialize Razorpay client
-razorpay_client = razorpay.Client(
-    auth=(os.getenv('RAZORPAY_KEY_ID'), os.getenv('RAZORPAY_KEY_SECRET'))
-)
-
 db.init_app(app)
 
 # Initialize Flask-Mail with app context
@@ -94,7 +76,6 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 UPLOAD_FOLDER = "static/images"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 # Valid categories
 VALID_CATEGORIES = ["tshirt", "shirt", "accessories", "jacket"]
@@ -293,10 +274,10 @@ def checkout():
     cart = session.get("cart", {})
     if not cart:
         return redirect(url_for("home"))
-
+    
     cart_items = []
     total_price = 0
-
+    
     for product_id, sizes in cart.items():
         product = Product.query.get(int(product_id))
         if product:
@@ -351,25 +332,23 @@ def checkout():
 
         payment_method = request.form.get("payment_method", "COD")
         order_items = []
-
+        
         try:
             # Start a transaction
             for item in cart_items:
                 product = item["product"]
                 size = item["size"]
                 quantity = item["quantity"]
-
+                
                 # Reduce stock immediately for both COD and Online payment
                 if size != "N/A":
                     stock_field = f"stock_{size.lower()}"
                     current_stock = getattr(product, stock_field, 0)
                     if current_stock < quantity:
-                        raise ValueError(
-                            f"Not enough stock for {product.name} (size {size})"
-                        )
+                        raise ValueError(f"Not enough stock for {product.name} (size {size})")
                     new_stock = current_stock - quantity
                     setattr(product, stock_field, new_stock)
-
+                
                 if size == "N/A":
                     order_items.append(f"{product.name} x {quantity}")
                 else:
@@ -394,29 +373,22 @@ def checkout():
                 order.advance_payment = 200.0
                 order.remaining_amount = total_price - 200.0
                 order.advance_payment_status = "Pending"
-
+            
             db.session.add(order)
             db.session.commit()
-
+            
             if payment_method == "COD":
-                return render_template(
-                    "advance_payment.html", total_price=total_price, order_id=order.id
-                )
+                return render_template("advance_payment.html", total_price=total_price, order_id=order.id)
             else:  # Online payment
-                return render_template(
-                    "payment.html", total_price=total_price, order_id=order.id
-                )
-
+                return render_template("payment.html", total_price=total_price, order_id=order.id)
+                
         except ValueError as e:
             db.session.rollback()
             flash(str(e), "danger")
             return redirect(url_for("checkout"))
         except Exception as e:
             db.session.rollback()
-            flash(
-                "An error occurred while processing your order. Please try again.",
-                "danger",
-            )
+            flash("An error occurred while processing your order. Please try again.", "danger")
             return redirect(url_for("checkout"))
 
     return render_template(
@@ -447,28 +419,22 @@ def process_dummy_payment(order_id):
                         current_stock = getattr(product, stock_field, 0)
                         new_stock = max(0, current_stock - quantity)
                         setattr(product, stock_field, new_stock)
-
+            
             db.session.commit()
-
+            
             # Send order confirmation email
             try:
                 from email_utils import send_order_confirmation_email
-
                 if send_order_confirmation_email(order):
-                    current_app.logger.info(
-                        f"Order confirmation email sent successfully for order #{order.id}"
-                    )
+                    current_app.logger.info(f"Order confirmation email sent successfully for order #{order.id}")
                 else:
-                    current_app.logger.warning(
-                        f"Failed to send order confirmation email for order #{order.id}"
-                    )
+                    current_app.logger.warning(f"Failed to send order confirmation email for order #{order.id}")
             except Exception as e:
-                current_app.logger.error(
-                    f"Error sending order confirmation email: {str(e)}"
-                )
-
+                current_app.logger.error(f"Error sending order confirmation email: {str(e)}")
+            
             flash("Test payment successful!", "success")
             session.pop("cart", None)
+            return render_template("order_success.html", order=order)
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f"Error processing payment: {str(e)}")
@@ -477,11 +443,8 @@ def process_dummy_payment(order_id):
     else:
         order.payment_status = "Failed"
         db.session.commit()
-        flash(
-            "Test payment failed. Please use card number 4111 1111 1111 1111.", "danger"
-        )
-        # Do not clear cart on failure to allow retry
-    return render_template("order_success.html", order=order)
+        flash("Test payment failed. Please use card number 4111 1111 1111 1111.", "danger")
+        return render_template("order_success.html", order=order)
 
 
 @app.route("/process_advance_payment/<int:order_id>", methods=["POST"])
@@ -704,9 +667,9 @@ def add_product():
 def edit_product(product_id):
     if not session.get("admin_logged_in"):
         return redirect(url_for("admin_login"))
-
+    
     product = Product.query.get_or_404(product_id)
-
+    
     if request.method == "POST":
         try:
             # Debug: Log when a POST request is received
@@ -818,7 +781,7 @@ def delete_image(image_id):
 def delete_product(product_id):
     if not session.get("admin_logged_in"):
         return redirect(url_for("admin_login"))
-
+    
     product = Product.query.get_or_404(product_id)
     try:
         # Delete product first
@@ -1327,92 +1290,7 @@ def admin_cancel_order(order_id):
     return redirect(url_for("admin_order_detail", order_id=order_id))
 
 
-@app.route('/create_payment', methods=['POST'])
-@login_required
-def create_payment():
-    try:
-        # Get order details from session
-        order_items = session.get('order_items', [])
-        if not order_items:
-            return jsonify({'error': 'No items in cart'}), 400
-
-        # Calculate total price
-        total_price = sum(float(item['price']) * int(item['quantity']) for item in order_items)
-        
-        # Create Razorpay order
-        payment = razorpay_client.order.create({
-            'amount': int(total_price * 100),  # Amount in paise
-            'currency': 'INR',
-            'payment_capture': 1
-        })
-        
-        return jsonify({
-            'id': payment['id'],
-            'amount': payment['amount'],
-            'currency': payment['currency']
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/payment_success', methods=['POST'])
-@login_required
-def payment_success():
-    try:
-        # Verify payment signature
-        params_dict = {
-            'razorpay_payment_id': request.form['razorpay_payment_id'],
-            'razorpay_order_id': request.form['razorpay_order_id'],
-            'razorpay_signature': request.form['razorpay_signature']
-        }
-        
-        razorpay_client.utility.verify_payment_signature(params_dict)
-        
-        # Get order details from session
-        order_items = session.get('order_items', [])
-        total_price = sum(float(item['price']) * int(item['quantity']) for item in order_items)
-        
-        # Create order in database
-        order = Order(
-            customer_id=session['customer_id'],
-            items=', '.join(order_items),
-            total_price=total_price,
-            payment_method='Online',
-            payment_status='Paid',
-            delivery_address=request.form['delivery_address'],
-            delivery_city=request.form['delivery_city'],
-            delivery_state=request.form['delivery_state'],
-            delivery_pincode=request.form['delivery_pincode'],
-            delivery_phone=request.form['delivery_phone']
-        )
-        
-        # Update stock
-        for item in order_items:
-            product = Product.query.get(item['id'])
-            if product:
-                product.stock -= int(item['quantity'])
-        
-        db.session.add(order)
-        db.session.commit()
-        
-        # Clear cart
-        session.pop('cart', None)
-        session.pop('order_items', None)
-        
-        flash('Payment successful! Your order has been placed.', 'success')
-        return redirect(url_for('order_confirmation', order_id=order.id))
-        
-    except Exception as e:
-        flash('Payment verification failed. Please contact support.', 'danger')
-        return redirect(url_for('checkout'))
-
-@app.route('/payment_failed')
-@login_required
-def payment_failed():
-    flash('Payment failed. Please try again.', 'danger')
-    return redirect(url_for('checkout'))
-
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
-    # Use SSL in development
-    app.run(debug=True, ssl_context=('certificates/cert.pem', 'certificates/key.pem'))
+    app.run(debug=True)

@@ -22,14 +22,14 @@
     <!-- Products Grid -->
     <div class="row">
         {% for product in products.items %}
-        <div class="col-md-4 mb-4">
+            <div class="col-md-4 mb-4">
             <div class="product-card">
-                {% if product.images %}
+                    {% if product.images %}
                 <img src="{{ url_for('static', filename='images/' + product.images[0].image_filename) }}" alt="{{ product.name }}" class="card-img-top">
-                {% endif %}
+                    {% endif %}
                 <div class="card-body">
                     <span class="eco-badge">Eco-Friendly</span>
-                    <h5 class="card-title">{{ product.name }}</h5>
+                        <h5 class="card-title">{{ product.name }}</h5>
                     <p class="card-text">{{ product.description[:100] }}...</p>
                     <span class="price">₹{{ "%.2f"|format(product.price) }}</span>
                     <a href="{{ url_for('product_detail', product_id=product.id) }}" class="btn btn-primary w-100">View Details</a>
@@ -39,7 +39,7 @@
         {% else %}
         <div class="col-12 text-center">
             <p>No products found.</p>
-        </div>
+            </div>
         {% endfor %}
     </div>
 

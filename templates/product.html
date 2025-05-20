@@ -50,18 +50,10 @@
                 <label for="size" class="form-label">Select Size:</label>
                 <select class="form-select bg-dark-grey text-beige border-dark-grey" id="size" name="size" required>
                     <option value="" disabled selected>Select a size</option>
-                    {% if product.stock_s > 0 %}
                     <option value="S" data-stock="{{ product.stock_s }}">Small</option>
-                    {% endif %}
-                    {% if product.stock_m > 0 %}
                     <option value="M" data-stock="{{ product.stock_m }}">Medium </option>
-                    {% endif %}
-                    {% if product.stock_l > 0 %}
                     <option value="L" data-stock="{{ product.stock_l }}">Large</option>
-                    {% endif %}
-                    {% if product.stock_xl > 0 %}
                     <option value="XL" data-stock="{{ product.stock_xl }}">Extra Large</option>
-                    {% endif %}
                 </select>
             </div>
 

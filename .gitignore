@@ -1,6 +1,5 @@
 # Environment variables
 .env
-.env.*
 
 # Python
 __pycache__/
@@ -29,26 +28,19 @@ venv/
 ENV/
 wenv/
 
+# Database
+*.db
+instance/
+
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
 
-# Database
-*.db
-*.sqlite3
-
 # Logs
+logs/
 *.log
-
-# Local development
-instance/
-.webassets-cache
-
-# Uploaded files
-static/images/*
-!static/images/.gitkeep
 
 # OS
 .DS_Store
